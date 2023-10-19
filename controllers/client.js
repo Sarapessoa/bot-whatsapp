@@ -33,8 +33,7 @@ function createClient(id){
         }),
         puppeteer: { 
             headless: true,
-            args: chromiumArgs,
-            executablePath:'/google-chrome-stable_current_amd64.deb'
+            args: chromiumArgs
         },
         ffmpegPath: require('@ffmpeg-installer/ffmpeg').path
     });
