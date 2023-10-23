@@ -12,9 +12,13 @@ function getClient(id){
     return clients[id] || undefined;
 }
 
+function getAllClients(){
+    return clients;
+}
+
 function createClient(id){
 
-    exibirMsgCriandoClient(id);
+    exibirMsgClient(id, 'Criando cliente...');
 
     const chromiumArgs = [
         '--disable-web-security', '--no-sandbox', '--disable-web-security',
@@ -29,12 +33,15 @@ function createClient(id){
 
     const client = new Client({
         authStrategy: new LocalAuth({
-            "clientId": id
+            "clientId": id,
+            "dataPath": "./tokens/"
         }),
         puppeteer: { 
             headless: true,
             args: chromiumArgs
         },
+        qrMaxRetries: 4,
+        authTimeoutMs: 60000,
         ffmpegPath: require('@ffmpeg-installer/ffmpeg').path
     });
 
@@ -43,9 +50,12 @@ function createClient(id){
 
 function startClient(id, client){
 
+    clients[id] = client;
+
     client.on('qr', (qr) => {
         // Generate and scan this code with your phone
         console.log('QR RECEIVED', qr);
+        exibirMsgClient(id, 'Aguardando Leitura...');
     
         qrcode.generate(qr, { small: true }, function (qrcode) {
             console.log(qrcode);
@@ -54,22 +64,22 @@ function startClient(id, client){
     });
     
     client.on('authenticated', () => {
-        stopMsgCriandoClient();
-        console.log(chalk.green(`[${id}]: cliente autenticado com sucesso!`));
+        stopMsgClient();
+        console.log(chalk.green(`[${id}]: Cliente autenticado com sucesso!`));
         clients[id] = client;
     });
     
     client.on('auth_failure', msg => {
         // Fired if session restore was unsuccessful
-        console.log(chalk.red(`[${id}]: não foi possível autenticar o cliente`));
+        console.log(chalk.red(`[${id}]: Não foi possível autenticar o cliente`));
     });
     
     client.on('ready', async () => {
-        console.log(chalk.green(`[${id}]: cliente pronto`));
+        console.log(chalk.green(`[${id}]: Cliente pronto`));
     });
     
     client.on('disconnected', () => {
-        console.log(chalk.red(`[${id}]: cliente desconectado`));
+        console.log(chalk.red(`[${id}]: Cliente desconectado`));
     });
     
     client.on('message', async (msg) => {
@@ -102,7 +112,7 @@ function startClient(id, client){
     client.initialize();
 }
 
-const getState = async (req, res) => {
+const getStateClient = async (req, res) => {
 
     const { session } = req.headers;
 
@@ -114,7 +124,31 @@ const getState = async (req, res) => {
 
         const result = await client.getState();
 
-        return res.json(result);
+        return res.status(200).json(result);
+
+    } catch (erro) {
+        console.error('Error when sending: ', erro); // return object error
+        return res.status(500).send('Erro para acessar o status!');
+    }
+};
+
+const getInfosClient = async (req, res) => {
+
+    const { session } = req.headers;
+
+    const client = getClient(session);
+
+    if(client == undefined) return res.status(404).send('Sessão não encontrada');
+
+    try {
+
+        const result = await client.info;
+
+        const photo = await client.getProfilePicUrl(result.wid._serialized);
+
+        result['photo'] = photo;
+
+        return res.status(200).json(result);
 
     } catch (erro) {
         console.error('Error when sending: ', erro); // return object error
@@ -124,13 +158,13 @@ const getState = async (req, res) => {
 
 //  Auxiliares
 
-function exibirMsgCriandoClient(id){
-    spinner = ora(`[${id}]: criando cliente...`).start();
+function exibirMsgClient(id, msg){
+    spinner = ora(`[${id}]: ${msg}`).start();
 
 }
 
-function stopMsgCriandoClient(){
+function stopMsgClient(){
     spinner.stop();
 }
 
-module.exports = { getClient, createClient, getState }
+module.exports = { getClient, getAllClients, createClient, getStateClient, getInfosClient }

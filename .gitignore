@@ -1,3 +1,6 @@
 /node_modules
-/.wwebjs_auth
+/tokens
 /.wwebjs_cache
+package-lock.json
+msg_resultados.txt
+destinos.json
